@@ -1,0 +1,23 @@
+# Garde-fous locaux : le déchet ne dépasse pas ta machine.
+# Installation : npx lefthook install
+pre-commit:
+  parallel: true
+  commands:
+    secrets:
+      run: gitleaks protect --staged --no-banner --redact
+      skip: { merge: true, rebase: true }
+    lint:
+      glob: "*.{js,ts,tsx,jsx}"
+      run: npx eslint {staged_files} --max-warnings 0
+    forbid-agent-contract:
+      run: |
+        if git diff --cached --name-only | grep -qE '^(AGENTS\.md|\.agent/(ARCHITECTURE|PROTOCOL)\.md)$'; then
+          echo "Ces fichiers sont du ressort du Master Agent. Commite-les explicitement avec --no-verify si c'est voulu."
+          exit 1
+        fi
+commit-msg:
+  commands:
+    conventional:
+      run: |
+        grep -qE '^(feat|fix|refactor|test|docs|chore|perf|build|ci)(\(.+\))?!?: .{3,}' "$1" \
+          || { echo "Message non conventionnel. Ex: feat(auth): ajoute la rotation de session"; exit 1; }

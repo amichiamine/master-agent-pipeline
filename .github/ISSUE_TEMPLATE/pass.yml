@@ -1,0 +1,35 @@
+name: Passe d'exécution
+description: Une unité de travail confiée à l'exécuteur, spécifiée par le Master Agent.
+title: "PASS-XXX: "
+labels: ["pass:hold"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cette issue est remplie par le **Master Agent**. Pour autoriser l'exécution,
+        remplace le label `pass:hold` par `pass:go`.
+  - type: input
+    id: objective
+    attributes: { label: Objectif, description: Une phrase. Le résultat attendu, pas la méthode. }
+    validations: { required: true }
+  - type: textarea
+    id: scope
+    attributes:
+      label: Périmètre autorisé
+      description: Chemins modifiables. Tout le reste est en lecture seule.
+      placeholder: "src/auth/**\ntests/auth/**"
+    validations: { required: true }
+  - type: textarea
+    id: forbidden
+    attributes: { label: Interdit, placeholder: "src/db/schema.ts\npackage.json" }
+  - type: textarea
+    id: tasks
+    attributes: { label: Tâches ordonnées, description: Numérotées. Sans improvisation. }
+    validations: { required: true }
+  - type: textarea
+    id: dod
+    attributes: { label: Définition de fini, placeholder: "- npm test passe\n- aucun any ajouté" }
+    validations: { required: true }
+  - type: input
+    id: budget
+    attributes: { label: Budget, placeholder: "30 min / 1 itération de correction max" }

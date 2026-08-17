@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline Master Agent ⇄ Antigravity — mode d'emploi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0e1118; --ink-2:#151a24; --ink-3:#1c2230; --line:#262e3d;
+    --fg:#dfe5ef; --fg-dim:#98a3b6; --fg-faint:#6b7688;
+    --acc:#5eb3ff; --acc-deep:#2a7fd4; --ok:#4ec98a; --warn:#e8a33d; --bad:#ef6b6b;
+    --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--ink);color:var(--fg);font-family:var(--sans);
+    font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+
+  /* ---------- layout ---------- */
+  .shell{display:grid;grid-template-columns:264px minmax(0,1fr);max-width:1400px;margin:0 auto}
+  nav{position:sticky;top:0;height:100vh;overflow-y:auto;border-right:1px solid var(--line);
+    padding:32px 20px 60px;background:var(--ink)}
+  main{padding:56px 6% 140px;min-width:0}
+  @media(max-width:900px){
+    .shell{grid-template-columns:1fr}
+    nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:20px 6%}
+    main{padding:32px 6% 100px}
+    nav ol{display:flex;flex-wrap:wrap;gap:6px}
+  }
+
+  /* ---------- nav ---------- */
+  .brand{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--fg-faint);margin-bottom:22px}
+  nav ol{list-style:none;margin:0;padding:0;counter-reset:s}
+  nav li{counter-increment:s}
+  nav a{display:block;padding:7px 10px;border-radius:7px;color:var(--fg-dim);text-decoration:none;
+    font-size:14px;transition:.16s;border-left:2px solid transparent}
+  nav a::before{content:counter(s,decimal-leading-zero);font-family:var(--mono);font-size:11px;
+    color:var(--fg-faint);margin-right:9px}
+  nav a:hover{color:var(--fg);background:var(--ink-2)}
+  nav a.on{color:var(--acc);background:var(--ink-2);border-left-color:var(--acc)}
+  nav a.on::before{color:var(--acc)}
+  .np{margin-top:26px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--fg-faint)}
+  .bar{height:5px;background:var(--ink-3);border-radius:3px;overflow:hidden;margin-top:8px}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc-deep),var(--acc));transition:.35s}
+
+  /* ---------- type ---------- */
+  h1{font-size:clamp(30px,4.4vw,46px);line-height:1.1;letter-spacing:-.024em;margin:0 0 14px;font-weight:700}
+  h2{font-size:26px;letter-spacing:-.018em;margin:76px 0 16px;padding-top:14px;font-weight:650;
+    border-top:1px solid var(--line)}
+  h2:first-of-type{border-top:0;margin-top:44px}
+  h3{font-size:17px;margin:34px 0 10px;font-weight:600;color:#fff}
+  h4{font-size:14px;margin:22px 0 8px;font-weight:600;color:var(--fg-dim);
+    font-family:var(--mono);letter-spacing:.02em}
+  p{margin:0 0 15px;color:var(--fg-dim);max-width:74ch}
+  strong{color:#fff;font-weight:600}
+  a{color:var(--acc)}
+  .lede{font-size:19px;line-height:1.65;color:var(--fg);max-width:70ch}
+  .kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--acc);margin-bottom:14px}
+  ul,ol{color:var(--fg-dim);max-width:74ch;padding-left:22px}
+  li{margin:6px 0}
+  code:not(pre code){font-family:var(--mono);font-size:.86em;background:var(--ink-3);
+    padding:2px 6px;border-radius:5px;color:#c9dcf5;white-space:nowrap}
+
+  /* ---------- code blocks ---------- */
+  .code{position:relative;margin:16px 0 22px;background:#0a0d13;border:1px solid var(--line);
+    border-radius:10px;overflow:hidden}
+  .code header{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;
+    background:var(--ink-2);border-bottom:1px solid var(--line)}
+  .code header span{font-family:var(--mono);font-size:11px;color:var(--fg-faint);letter-spacing:.06em}
+  .code pre{margin:0;padding:15px 16px;overflow-x:auto;font-family:var(--mono);
+    font-size:13.2px;line-height:1.65;color:#d5e3f5}
+  .cp{background:transparent;border:1px solid var(--line);color:var(--fg-dim);font-family:var(--mono);
+    font-size:11px;padding:3px 9px;border-radius:6px;cursor:pointer;transition:.15s}
+  .cp:hover{color:#fff;border-color:var(--acc);background:var(--ink-3)}
+  .cp.done{color:var(--ok);border-color:var(--ok)}
+  .v{color:var(--acc);font-weight:500}
+
+  /* ---------- callouts ---------- */
+  .note{border-left:3px solid var(--acc);background:#12202f6b;padding:14px 18px;border-radius:0 8px 8px 0;margin:20px 0}
+  .warn{border-left:3px solid var(--warn);background:#2a20106b;padding:14px 18px;border-radius:0 8px 8px 0;margin:20px 0}
+  .bad{border-left:3px solid var(--bad);background:#2a13136b;padding:14px 18px;border-radius:0 8px 8px 0;margin:20px 0}
+  .note p:last-child,.warn p:last-child,.bad p:last-child{margin-bottom:0}
+  .note strong,.warn strong,.bad strong{display:block;margin-bottom:4px;font-size:13px;
+    font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em}
+  .note strong{color:var(--acc)} .warn strong{color:var(--warn)} .bad strong{color:var(--bad)}
+
+  /* ---------- tables ---------- */
+  .tw{overflow-x:auto;margin:20px 0 26px}
+  table{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+  th{text-align:left;font-family:var(--mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--fg-faint);padding:9px 13px;border-bottom:1px solid var(--line);font-weight:500}
+  td{padding:11px 13px;border-bottom:1px solid #1b2230;color:var(--fg-dim);vertical-align:top}
+  tr:hover td{background:#141a2480}
+  td strong{color:#fff}
+
+  /* ---------- cards ---------- */
+  .grid{display:grid;gap:14px;margin:22px 0}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(258px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(196px,1fr))}
+  .card{background:var(--ink-2);border:1px solid var(--line);border-radius:11px;padding:18px}
+  .card h4{margin:0 0 7px;color:#fff;font-family:var(--sans);font-size:15px;letter-spacing:0}
+  .card p{font-size:13.6px;margin:0;line-height:1.6}
+  .card .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--fg-faint);display:block;margin-bottom:9px}
+
+  /* ---------- interactive: config ---------- */
+  .panel{background:linear-gradient(180deg,#182233,#141a26);
+    border:1px solid #2f3d52;border-radius:13px;padding:22px;margin:26px 0}
+  .panel > .tag{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--acc);display:block;margin-bottom:4px}
+  .fields{display:grid;gap:13px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-top:16px}
+  label{display:block;font-size:11.5px;font-family:var(--mono);letter-spacing:.06em;
+    text-transform:uppercase;color:var(--fg-faint);margin-bottom:5px}
+  input,select,textarea{width:100%;background:#0b0e14;border:1px solid var(--line);color:var(--fg);
+    font-family:var(--mono);font-size:13px;padding:9px 11px;border-radius:7px}
+  input:focus,select,textarea:focus{outline:none;border-color:var(--acc)}
+  textarea{resize:vertical;min-height:74px;line-height:1.6}
+  .btn{background:var(--acc-deep);border:0;color:#fff;font-family:var(--sans);font-size:13.5px;
+    font-weight:600;padding:9px 17px;border-radius:8px;cursor:pointer;transition:.16s}
+  .btn:hover{background:var(--acc);color:#08101c}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--fg-dim)}
+  .btn.ghost:hover{border-color:var(--acc);color:#fff;background:var(--ink-3)}
+  .row{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:15px}
+
+  /* ---------- tabs ---------- */
+  .tabs{display:flex;gap:3px;border-bottom:1px solid var(--line);margin:22px 0 0}
+  .tab{background:none;border:0;border-bottom:2px solid transparent;color:var(--fg-faint);
+    font-family:var(--mono);font-size:12.5px;padding:8px 14px;cursor:pointer}
+  .tab.on{color:var(--acc);border-bottom-color:var(--acc)}
+  .pane{display:none} .pane.on{display:block}
+
+  /* ---------- checklist ---------- */
+  .ck{list-style:none;padding:0;margin:18px 0}
+  .ck li{display:flex;gap:11px;align-items:flex-start;padding:11px 13px;background:var(--ink-2);
+    border:1px solid var(--line);border-radius:9px;margin-bottom:7px;cursor:pointer;transition:.15s}
+  .ck li:hover{border-color:#3a4a63}
+  .ck li.on{opacity:.5;border-color:var(--ok)}
+  .ck li.on .t{text-decoration:line-through}
+  .box{flex:0 0 17px;height:17px;margin-top:3px;border:1.5px solid var(--fg-faint);border-radius:4px;
+    display:grid;place-items:center;font-size:11px;color:transparent}
+  .ck li.on .box{background:var(--ok);border-color:var(--ok);color:#08101c}
+  .t{font-size:14.4px;color:var(--fg)}
+  .t small{display:block;color:var(--fg-faint);font-size:12.6px;margin-top:2px;font-family:var(--mono)}
+
+  /* ---------- accordion ---------- */
+  details{background:var(--ink-2);border:1px solid var(--line);border-radius:9px;margin-bottom:8px;
+    padding:0 16px}
+  summary{cursor:pointer;padding:13px 0;font-size:14.5px;color:var(--fg);font-weight:500;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:'+';font-family:var(--mono);color:var(--acc);margin-right:10px;font-weight:700}
+  details[open] summary::before{content:'−'}
+  details > *:not(summary){font-size:14px}
+  details p{margin-bottom:12px}
+
+  /* ---------- diagram ---------- */
+  .flow{background:#0a0d13;border:1px solid var(--line);border-radius:11px;padding:22px 18px;
+    overflow-x:auto;margin:24px 0}
+  .flow pre{margin:0;font-family:var(--mono);font-size:12.4px;line-height:1.75;color:var(--fg-dim)}
+  .flow b{color:var(--acc);font-weight:500}
+
+  .pill{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;
+    padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--fg-faint);
+    text-transform:uppercase;margin-right:5px}
+  .pill.ok{color:var(--ok);border-color:#2c5f47}
+  .pill.no{color:var(--bad);border-color:#5f2c2c}
+  footer{border-top:1px solid var(--line);margin-top:90px;padding-top:22px;font-size:13px;color:var(--fg-faint)}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav>
+  <div class="brand">Master&nbsp;Agent ⇄ Antigravity</div>
+  <ol>
+    <li><a href="#concept" class="on">Le principe</a></li>
+    <li><a href="#roles">Rôles et frontières</a></li>
+    <li><a href="#cycle">Le cycle d'une passe</a></li>
+    <li><a href="#prereq">Pré-requis</a></li>
+    <li><a href="#windows">Windows &amp; WSL</a></li>
+    <li><a href="#install">Installation</a></li>
+    <li><a href="#config">Configurateur</a></li>
+    <li><a href="#tunnel">Exposition &amp; sécurité</a></li>
+    <li><a href="#github">Câblage GitHub</a></li>
+    <li><a href="#contract">Remplir le contrat</a></li>
+    <li><a href="#first">Première passe</a></li>
+    <li><a href="#builder">Générateur de specs</a></li>
+    <li><a href="#usages">Usages possibles</a></li>
+    <li><a href="#deploy">Déploiement distant</a></li>
+    <li><a href="#quota">Économie de quota</a></li>
+    <li><a href="#api">Référence API</a></li>
+    <li><a href="#reuse">Réutiliser le gabarit</a></li>
+    <li><a href="#trouble">Dépannage</a></li>
+  </ol>
+  <div class="np">
+    Progression <span id="pct">0 %</span>
+    <div class="bar"><i id="pbar"></i></div>
+  </div>
+</nav>
+
+<main>
+  <div class="kicker">Mode d'emploi complet · août 2026</div>
+  <h1>Piloter un projet de vibe coding avec un architecte et un exécutant séparés</h1>
+  <p class="lede">Ce dépôt sépare radicalement <strong>la conception</strong> de <strong>l'exécution</strong>.
+  Un Master Agent raisonne, audite, spécifie et juge. Un exécuteur local implémente à la lettre et rend
+  des comptes. Le dépôt Git est le seul canal entre eux — et tu redeviens l'arbitre au lieu d'être
+  la courroie de transmission.</p>
+
+  <!-- =============================================== 1 -->
+  <h2 id="concept">1 · Le principe</h2>
+  <p>Un agent puissant coûte cher et raisonne bien. Un agent local coûte peu et exécute bien.
+  Les faire travailler ensemble suppose de résoudre trois problèmes, et ce dépôt ne fait rien d'autre :</p>
+
+  <div class="grid g3">
+    <div class="card"><span class="tag">Problème 1</span><h4>Aucun lien direct</h4>
+      <p>Le Master ne peut pas parler à ton IDE. Réponse : ils partagent un dépôt, pas une connexion.
+      Tout est un fichier versionné.</p></div>
+    <div class="card"><span class="tag">Problème 2</span><h4>La dérive de l'exécutant</h4>
+      <p>Un modèle plus faible improvise dès que la spec a un trou. Réponse : périmètre déclaré,
+      interdits explicites, marqueur de fin obligatoire, et un CI qui refuse le travail non conforme.</p></div>
+    <div class="card"><span class="tag">Problème 3</span><h4>Le quota du Master</h4>
+      <p>Chaque réveil coûte. Réponse : le CI filtre en amont, les logs vivent dans le dépôt,
+      et les audits passent par un digest condensé.</p></div>
+  </div>
+
+  <div class="note"><strong>La règle qui gouverne tout le reste</strong>
+  <p>Toute règle d'architecture doit avoir un outil qui la fait respecter. Une frontière que seul un
+  document décrit sera franchie ; une frontière qu'un linter vérifie ne le sera jamais deux fois.
+  C'est ce qui libère le Master du travail de relecture mécanique.</p></div>
+
+  <!-- =============================================== 2 -->
+  <h2 id="roles">2 · Rôles et frontières</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Rôle</th><th>Qui</th><th>Fait</th><th>Ne fait jamais</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Master Agent</strong></td><td>Claude, via Hyperagent</td>
+        <td>scanner, auditer, diagnostiquer, architecturer, planifier, spécifier, juger, recadrer</td>
+        <td>écrire du code de production</td></tr>
+      <tr><td><strong>Exécuteur</strong></td><td><code>agy</code> — Antigravity CLI, en local</td>
+        <td>implémenter la spec à la lettre, vérifier, rapporter</td>
+        <td>décider, élargir le périmètre, improviser</td></tr>
+      <tr><td><strong>Arbitre</strong></td><td>toi</td>
+        <td>trancher le produit, prioriser, fusionner</td>
+        <td>servir de copiste entre les deux</td></tr>
+      <tr><td><strong>Juges</strong></td><td>GitHub Actions</td>
+        <td>tests, lint, secrets, règles d'architecture, conformité du rapport</td>
+        <td>juger la conception</td></tr>
+    </tbody></table></div>
+
+  <h3>Les fichiers qui portent le contrat</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Fichier</th><th>Écrit par</th><th>Rôle</th></tr></thead>
+    <tbody>
+      <tr><td><code>AGENTS.md</code></td><td>Master</td><td>contrat d'exécution — lu par <code>agy</code> <em>et</em> par l'IDE Antigravity</td></tr>
+      <tr><td><code>.agent/PROTOCOL.md</code></td><td>Master</td><td>qui fait quoi, dans quel ordre</td></tr>
+      <tr><td><code>.agent/ARCHITECTURE.md</code></td><td>Master</td><td>structure cible, frontières, règles opposables</td></tr>
+      <tr><td><code>.agent/STATE.md</code></td><td>Master</td><td>état courant, dette, questions ouvertes</td></tr>
+      <tr><td><code>.agent/passes/PASS-*.md</code></td><td>Master</td><td>specs d'exécution — lecture seule pour l'exécuteur</td></tr>
+      <tr><td><code>.agent/runs/PASS-*.run.md</code></td><td><code>agy</code></td><td>rapport d'exécution — obligatoire, vérifié par le CI</td></tr>
+      <tr><td><code>.agent/decisions/ADR-*.md</code></td><td>Master</td><td>décisions d'architecture et leur mode d'application</td></tr>
+    </tbody></table></div>
+
+  <!-- =============================================== 3 -->
+  <h2 id="cycle">3 · Le cycle d'une passe</h2>
+  <div class="flow"><pre>
+  <b>1 AUDIT</b>      le Master lit le dépôt (API GitHub + digest) ──► .agent/reports/
+  <b>2 PLAN</b>       découpage en passes ──────────────────────────► .agent/BACKLOG.md + issues
+  <b>3 SPEC</b>       périmètre, tâches, définition de fini, budget ─► .agent/passes/PASS-NNN.md
+  <b>4 DÉCLENCHE</b>  toi : label <b>pass:go</b>  ou  POST /pass sur l'exécuteur
+  <b>5 EXÉCUTE</b>    agy travaille sur pass/NNN, dans un git worktree isolé
+  <b>6 RAPPORTE</b>   .agent/runs/PASS-NNN.run.md  +  marqueur PASS-DONE / PASS-BLOCKED
+  <b>7 VÉRIFIE</b>    CI : tests · lint · secrets · architecture · conformité du rapport
+  <b>8 JUGE</b>       le Master lit diff + rapport + CI
+  <b>9 VERDICT</b>    ✅ merge   │   ⚠️ merge + dette inscrite   │   ❌ passe correctrice NNNb
+  <b>10 MÉMOIRE</b>   STATE.md, BACKLOG.md, et un ADR si une décision a été prise
+</pre></div>
+  <p>Les étapes 6 et 7 ne sont jamais sautées : <strong>un résultat non vérifié n'est pas un résultat.</strong></p>
+
+  <h3>États d'une passe</h3>
+  <p><span class="pill">planned</span><span class="pill">running</span><span class="pill no">blocked</span><span class="pill">to-judge</span><span class="pill no">rejected</span><span class="pill ok">done</span></p>
+
+  <!-- =============================================== 4 -->
+  <h2 id="prereq">4 · Pré-requis</h2>
+  <div class="warn"><strong>Changement majeur du 18 juin 2026</strong>
+  <p>Google a coupé <strong>Gemini CLI</strong> pour les tiers gratuit, <strong>Google AI Pro</strong> et Ultra —
+  le login Google a été retiré. L'exécuteur de ce pipeline est donc <code>agy</code>
+  (<strong>Antigravity CLI</strong>), sur lequel ton abonnement Pro donne des limites relevées.
+  Corollaire : l'action GitHub <code>run-gemini-cli</code> t'est inaccessible, car elle exige une clé API
+  ou une licence Code Assist Standard/Enterprise. <strong>L'exécution est donc locale.</strong></p></div>
+
+  <div class="tw"><table>
+    <thead><tr><th>Outil</th><th>Vérification</th><th>Pourquoi</th></tr></thead>
+    <tbody>
+      <tr><td><code>git</code></td><td><code>git --version</code></td><td>worktrees, branches, PR</td></tr>
+      <tr><td><code>node</code> ≥ 18</td><td><code>node --version</code></td><td>l'exécuteur HTTP (zéro dépendance)</td></tr>
+      <tr><td><code>agy</code></td><td><code>agy --version</code></td><td>Antigravity CLI — depuis <a href="https://antigravity.google" target="_blank" rel="noopener noreferrer">antigravity.google</a></td></tr>
+      <tr><td><code>script</code></td><td><code>script --version</code></td><td>pseudo-TTY — <strong>indispensable</strong>, voir §5</td></tr>
+      <tr><td><code>python3</code></td><td><code>python3 --version</code></td><td>sérialisation JSON sûre dans le runner</td></tr>
+      <tr><td><code>gh</code></td><td><code>gh auth status</code></td><td>optionnel — ouverture automatique des PR</td></tr>
+    </tbody></table></div>
+
+  <h3>Authentifier <code>agy</code> une fois pour toutes</h3>
+  <div class="code"><header><span>bash · session interactive</span><button class="cp">copier</button></header><pre>agy                                  # suis le flux de connexion Google, puis quitte
+agy -p "réponds exactement PONG"     # test non interactif</pre></div>
+
+  <div class="bad"><strong>Si la seconde commande ne renvoie rien</strong>
+  <p>C'est normal et attendu : <code>agy -p</code> perd son stdout hors d'un vrai terminal,
+  <em>tout en sortant en code 0</em>. Vérifie avec la forme enveloppée ci-dessous — si elle affiche
+  <code>PONG</code>, ton installation est saine et le kit gère déjà le contournement.</p></div>
+
+  <div class="code"><header><span>bash · confirmation du contournement</span><button class="cp">copier</button></header><pre>script -qec 'agy -p "réponds exactement PONG"' /dev/null</pre></div>
+
+  <!-- =============================================== windows -->
+  <h2 id="windows">5 · Windows : où faire tourner l'exécuteur</h2>
+  <div class="bad"><strong>À lire avant d'installer quoi que ce soit sur Windows</strong>
+  <p>Sur Windows 11 avec PowerShell 7, <code>agy -p</code> ne perd pas seulement son stdout :
+  le mode print <strong>échoue aussi à réutiliser la session authentifiée</strong> et part en timeout
+  OAuth, alors que la même machine lance l'interface interactive sans difficulté. La cause documentée :
+  <code>agy</code> invoque en interne PowerShell&nbsp;5.1, dont <code>Write-Host</code> contourne le
+  pipeline standard et disparaît dès qu'aucune console n'est attachée.
+  Et le contournement pseudo-TTY (<code>script</code>) <strong>n'existe pas sur Windows</strong> —
+  ni en PowerShell, ni dans Git&nbsp;Bash.</p></div>
+
+  <div class="tw"><table>
+    <thead><tr><th>Environnement</th><th><code>script</code> (pseudo-TTY)</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>PowerShell natif</td><td>absent</td><td><span class="pill no">exclu</span> stdout perdu, auth en timeout</td></tr>
+      <tr><td>Git Bash / MSYS2</td><td>absent du paquet Git for Windows</td><td><span class="pill no">exclu</span></td></tr>
+      <tr><td><strong>WSL2 (Ubuntu)</strong></td><td>fourni par util-linux</td><td><span class="pill ok">recommandé</span></td></tr>
+      <tr><td>devcontainer (Docker Desktop)</td><td>oui</td><td>valable — mais Docker Desktop s'appuie déjà sur WSL2</td></tr>
+    </tbody></table></div>
+
+  <p>Le choix de WSL2 n'est pas un pis-aller : tu retrouves un <code>agy</code> qui se comporte comme
+  documenté, <strong>et le même environnement que le devcontainer et le CI</strong> — exactement la
+  cohérence à trois surfaces que ce kit recherche. Antigravity reste ton IDE côté Windows et sait
+  ouvrir un dossier WSL, donc tu ne perds rien en confort d'édition.</p>
+
+  <h3>Installer et vérifier</h3>
+  <div class="tabgroup">
+    <div class="tabs">
+      <button class="tab on" data-t="w1">1 · PowerShell</button>
+      <button class="tab" data-t="w2">2 · Ubuntu (WSL)</button>
+      <button class="tab" data-t="w3">3 · Vérification</button>
+    </div>
+    <div class="panes">
+      <div class="pane on" data-p="w1">
+        <div class="code"><header><span>powershell · une seule fois</span><button class="cp">copier</button></header><pre>wsl --install -d Ubuntu-24.04
+wsl --set-default-version 2
+wsl -l -v          # Ubuntu doit apparaitre en VERSION 2</pre></div>
+      </div>
+      <div class="pane" data-p="w2">
+        <p>Travaille dans le système de fichiers Linux (<code>~</code>), <strong>jamais depuis
+        <code>/mnt/c/...</code></strong> : les accès croisés sont lents et les métadonnées de fichiers
+        se comportent mal avec git.</p>
+        <div class="code"><header><span>bash · dans Ubuntu</span><button class="cp">copier</button></header><pre>sudo apt update
+sudo apt install -y util-linux git curl nodejs npm python3 jq
+
+cd ~ &amp;&amp; git clone https://github.com/amichiamine/master-agent-pipeline.git
+cd master-agent-pipeline
+cp tools/executor/.env.example tools/executor/.env
+# REPO_ROOT=/home/&lt;toi&gt;/master-agent-pipeline</pre></div>
+      </div>
+      <div class="pane" data-p="w3">
+        <p>Authentifie <code>agy</code> une fois en interactif, puis valide le pseudo-TTY :</p>
+        <div class="code"><header><span>bash · dans Ubuntu</span><button class="cp">copier</button></header><pre>agy                                    # flux de connexion Google, puis quitte
+agy -p "réponds exactement PONG"       # peut renvoyer du vide : c'est le bug attendu
+script -qec 'agy -p "réponds exactement PONG"' /dev/null   # doit afficher PONG</pre></div>
+        <div class="note"><strong>Le test qui compte</strong>
+        <p>Si la forme nue est vide et la forme enveloppée affiche <code>PONG</code>, ton installation
+        est saine : le kit utilise systématiquement la seconde.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Poser le kit dans un dépôt, depuis Windows</h3>
+  <div class="tabgroup">
+    <div class="tabs">
+      <button class="tab on" data-t="c1">PowerShell</button>
+      <button class="tab" data-t="c2">Bash / WSL</button>
+    </div>
+    <div class="panes">
+      <div class="pane on" data-p="c1">
+        <div class="code"><header><span>powershell</span><button class="cp">copier</button></header><pre>tar -xzf master-agent-pipeline-kit.tar.gz
+
+# robocopy et non Copy-Item : il embarque les dossiers caches (.agent, .github, .gitignore)
+robocopy .\kit .\mon-projet /E
+
+cd .\mon-projet
+git add -A
+git commit -m "feat: pipeline Master Agent"
+git push</pre></div>
+        <p style="font-size:13.4px;color:var(--fg-faint)"><code>robocopy</code> renvoie un code de sortie
+        non nul même en cas de succès (<code>1</code> = fichiers copiés) : c'est normal.</p>
+      </div>
+      <div class="pane" data-p="c2">
+        <div class="code"><header><span>bash</span><button class="cp">copier</button></header><pre>tar -xzf master-agent-pipeline-kit.tar.gz
+cp -r kit/. mon-projet/
+cd mon-projet
+git add -A &amp;&amp; git commit -m "feat: pipeline Master Agent" &amp;&amp; git push</pre></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =============================================== 5 -->
+  <h2 id="install">6 · Installation</h2>
+  <ul class="ck" id="ck">
+    <li data-k="i1"><span class="box">✓</span><span class="t">Poser le kit à la racine du dépôt<small>cp -r kit/. .</small></span></li>
+    <li data-k="i2"><span class="box">✓</span><span class="t">Créer <code>.env</code> depuis <code>.env.example</code><small>tools/executor/.env</small></span></li>
+    <li data-k="i3"><span class="box">✓</span><span class="t">Générer un jeton de 48 caractères<small>openssl rand -hex 24</small></span></li>
+    <li data-k="i4"><span class="box">✓</span><span class="t">Démarrer l'exécuteur et vérifier <code>/health</code><small>node tools/executor/server.js</small></span></li>
+    <li data-k="i5"><span class="box">✓</span><span class="t">Ouvrir le tunnel et noter l'URL publique<small>cloudflared tunnel --url …</small></span></li>
+    <li data-k="i6"><span class="box">✓</span><span class="t">Protéger <code>main</code> et créer les labels de passe<small>réglages GitHub</small></span></li>
+    <li data-k="i7"><span class="box">✓</span><span class="t">Figer les commandes de vérification dans <code>AGENTS.md</code> §5<small>la stack réelle du projet</small></span></li>
+    <li data-k="i8"><span class="box">✓</span><span class="t">Remplir <code>ARCHITECTURE.md</code> — et l'outil qui fait respecter chaque règle<small>l'étape qui décide de la tenue du pipeline</small></span></li>
+    <li data-k="i9"><span class="box">✓</span><span class="t">Installer les garde-fous locaux<small>npx lefthook install</small></span></li>
+    <li data-k="i10"><span class="box">✓</span><span class="t">Lancer PASS-001<small>POST /pass</small></span></li>
+  </ul>
+  <p style="font-size:13px;color:var(--fg-faint)">Clique une ligne pour la cocher. La progression est conservée dans ton navigateur.</p>
+
+  <h3>Poser le kit</h3>
+  <div class="code"><header><span>bash · racine du projet</span><button class="cp">copier</button></header><pre>tar -xzf master-agent-pipeline-kit.tar.gz
+cp -r kit/. .
+git add -A && git commit -m "chore: pipeline master agent"</pre></div>
+
+  <!-- =============================================== 6 -->
+  <h2 id="config">7 · Configurateur</h2>
+  <p>Renseigne tes valeurs : <strong>toutes les commandes de cette page s'adaptent</strong>.</p>
+
+  <div class="panel">
+    <span class="tag">Paramètres locaux</span>
+    <div class="fields">
+      <div><label for="f-root">Chemin absolu du dépôt</label><input id="f-root" value="/home/moi/projets/mon-projet"></div>
+      <div><label for="f-port">Port de l'exécuteur</label><input id="f-port" value="7788"></div>
+      <div><label for="f-base">Branche de base</label><input id="f-base" value="main"></div>
+      <div><label for="f-cmd">Exécuteur</label>
+        <select id="f-cmd"><option value="agy">agy — Antigravity CLI</option>
+          <option value="qwen">qwen — suppléant</option><option value="opencode">opencode</option>
+          <option value="aider">aider</option></select></div>
+      <div><label for="f-model">Modèle (facultatif)</label><input id="f-model" placeholder="Gemini 3.1 Pro (High)"></div>
+      <div><label for="f-timeout">Timeout d'impression</label><input id="f-timeout" value="30m"></div>
+      <div style="grid-column:1/-1"><label for="f-token">Jeton de l'exécuteur</label><input id="f-token" value="colle-ou-genere-un-jeton-de-48-caracteres"></div>
+      <div style="grid-column:1/-1"><label for="f-url">URL publique du tunnel (une fois ouvert)</label><input id="f-url" placeholder="https://xxxx.trycloudflare.com"></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="gen">Générer un jeton sûr</button>
+      <button class="btn ghost" id="reset">Réinitialiser</button>
+      <span style="font-size:12.5px;color:var(--fg-faint)" id="saved"></span>
+    </div>
+  </div>
+
+  <h4>tools/executor/.env</h4>
+  <div class="code"><header><span>fichier · ne jamais commiter</span><button class="cp">copier</button></header><pre data-tpl="env"></pre></div>
+
+  <h4>Démarrer l'exécuteur</h4>
+  <div class="code"><header><span>bash</span><button class="cp">copier</button></header><pre data-tpl="start"></pre></div>
+
+  <h4>Vérifier qu'il répond</h4>
+  <div class="code"><header><span>bash</span><button class="cp">copier</button></header><pre data-tpl="health"></pre></div>
+
+  <!-- =============================================== 7 -->
+  <h2 id="tunnel">8 · Exposition et sécurité</h2>
+  <p>Le tunnel est ce qui me permet de piloter l'exécuteur directement, sans que tu recopies quoi que ce soit.</p>
+
+  <div class="tabgroup">
+  <div class="tabs">
+    <button class="tab on" data-t="cf">Cloudflare</button>
+    <button class="tab" data-t="ts">Tailscale</button>
+    <button class="tab" data-t="ng">ngrok</button>
+  </div>
+  <div class="panes">
+  <div class="pane on" data-p="cf">
+    <p>Gratuit, illimité, URL stable possible avec un domaine. <strong>Le choix recommandé.</strong></p>
+    <div class="code"><header><span>bash · URL éphémère, pour démarrer</span><button class="cp">copier</button></header><pre data-tpl="cf"></pre></div>
+    <div class="code"><header><span>bash · URL stable, une fois validé</span><button class="cp">copier</button></header><pre data-tpl="cf2"></pre></div>
+  </div>
+  <div class="pane" data-p="ts">
+    <p>Réseau privé, exposition HTTPS ciblée. Gratuit en usage personnel.</p>
+    <div class="code"><header><span>bash</span><button class="cp">copier</button></header><pre data-tpl="ts"></pre></div>
+  </div>
+  <div class="pane" data-p="ng">
+    <p>URL éphémère, idéal pour prototyper en cinq minutes.</p>
+    <div class="code"><header><span>bash</span><button class="cp">copier</button></header><pre data-tpl="ng"></pre></div>
+  </div>
+  </div></div>
+
+  <div class="bad"><strong>Quatre règles non négociables</strong>
+  <p><strong>1.</strong> L'URL est publique : le jeton est ta seule barrière. Traite-le comme un mot de passe,
+  ne le colle jamais dans une conversation ni dans un commit.<br>
+  <strong>2.</strong> Le serveur n'exécute que des commandes d'une <strong>liste blanche</strong> — aucune chaîne
+  reçue n'atteint un shell. N'ajoute <em>jamais</em> de route « exécute cette commande arbitraire ».<br>
+  <strong>3.</strong> Coupe le tunnel quand tu ne travailles pas.<br>
+  <strong>4.</strong> L'exécuteur écoute sur <code>127.0.0.1</code>, jamais sur <code>0.0.0.0</code>.</p></div>
+
+  <!-- =============================================== 8 -->
+  <h2 id="github">9 · Câblage GitHub</h2>
+  <ol>
+    <li><strong>Protéger <code>main</code></strong> : PR obligatoire, <code>verify</code> requis, aucun push direct.</li>
+    <li><strong>Créer les labels</strong> : <code>pass:go</code>, <code>pass:blocked</code>, <code>pass:review</code>, <code>pass:hold</code>, <code>debt</code>.</li>
+    <li><strong>Facultatif</strong> : secret <code>MASTER_WEBHOOK_URL</code> — le CI me réveille alors sur PR verte.</li>
+  </ol>
+  <div class="code"><header><span>bash · gh cli</span><button class="cp">copier</button></header><pre>gh label create "pass:go"      --color 0e8a16 --description "Autorise l'exécution"
+gh label create "pass:blocked" --color d93f0b --description "Attend un arbitrage"
+gh label create "pass:review"  --color 1d76db --description "Prêt pour le verdict"
+gh label create "pass:hold"    --color 5319e7 --description "Gelée"
+gh label create "debt"         --color fbca04 --description "Dette assumée"</pre></div>
+
+  <h3>Ce que les juges vérifient</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Job</th><th>Contrôle</th><th>Échoue si</th></tr></thead>
+    <tbody>
+      <tr><td><code>pass-contract</code></td><td>conformité du rapport de run</td><td>rapport absent, ou une section manquante</td></tr>
+      <tr><td><code>pass-contract</code></td><td>intégrité du contrat</td><td>l'exécuteur a modifié <code>AGENTS.md</code>, une spec ou un workflow</td></tr>
+      <tr><td><code>secrets</code></td><td>gitleaks</td><td>un secret est présent dans l'historique</td></tr>
+      <tr><td><code>quality</code></td><td>typecheck · lint · tests</td><td>un échec dans la stack détectée</td></tr>
+      <tr><td><code>quality</code></td><td>dependency-cruiser</td><td>une frontière d'architecture est franchie</td></tr>
+    </tbody></table></div>
+  <div class="note"><strong>Pourquoi ce garde-fou compte</strong>
+  <p>Un exécuteur qui échoue peut être tenté de « réussir » en désactivant un test ou en corrigeant
+  la règle plutôt que le code. Ici, il n'a pas le droit d'écrire dans les workflows ni dans le contrat,
+  et le CI le vérifie. Il ne peut pas s'auto-absoudre.</p></div>
+
+  <!-- =============================================== 9 -->
+  <h2 id="contract">10 · Remplir le contrat</h2>
+  <p>Deux fichiers à compléter <strong>avant</strong> la première passe. C'est ce qui distingue un pipeline
+  qui tient d'un pipeline qui dérive.</p>
+
+  <h3>AGENTS.md §5 — les commandes de vérification</h3>
+  <div class="code"><header><span>markdown · à adapter à ta stack</span><button class="cp">copier</button></header><pre># Node
+npm run typecheck && npm run lint && npm test
+
+# Python
+ruff check . && mypy . && pytest -q</pre></div>
+
+  <h3>ARCHITECTURE.md — les règles opposables</h3>
+  <p>Chaque règle doit nommer l'outil qui la fait respecter. Sans colonne de droite, c'est une intention :</p>
+  <div class="tw"><table>
+    <thead><tr><th>Règle d'architecture</th><th>Outil qui la rend opposable</th></tr></thead>
+    <tbody>
+      <tr><td>la présentation ne touche jamais la base</td><td>dependency-cruiser · eslint-boundaries</td></tr>
+      <tr><td>pas de <code>any</code>, pas de <code>console.log</code></td><td>tsconfig strict · règles ESLint</td></tr>
+      <tr><td>aucun secret en clair</td><td>gitleaks · semgrep</td></tr>
+      <tr><td>aucun code mort</td><td>knip · depcheck</td></tr>
+      <tr><td>couverture ≥ 70 % sur le domaine</td><td>seuil de coverage</td></tr>
+      <tr><td>la structure de dossiers est celle-ci</td><td>test de conformité d'arborescence</td></tr>
+    </tbody></table></div>
+  <div class="note"><strong>Raccourci</strong>
+  <p>Donne-moi accès au dépôt et je rédige ces deux fichiers moi-même, à partir d'un audit du code existant.</p></div>
+
+  <!-- =============================================== 10 -->
+  <h2 id="first">11 · Première passe</h2>
+  <div class="code"><header><span>bash · lancement</span><button class="cp">copier</button></header><pre data-tpl="pass"></pre></div>
+  <div class="code"><header><span>bash · suivi</span><button class="cp">copier</button></header><pre data-tpl="status"></pre></div>
+  <p>À la fin : branche <code>pass/PASS-001</code> poussée, PR ouverte avec le label <code>pass:review</code>,
+  rapport dans <code>.agent/runs/</code>. Tu me dis « PASS-001 poussée » — ou le webhook le fait — je juge et j'enchaîne.</p>
+
+  <!-- =============================================== 11 -->
+  <h2 id="builder">12 · Générateur de specs</h2>
+  <p>Une spec bien bornée est ce qui empêche un exécutant plus faible de dériver. Remplis, récupère le
+  markdown et la commande.</p>
+
+  <div class="panel">
+    <span class="tag">Nouvelle passe</span>
+    <div class="fields">
+      <div><label for="s-id">Identifiant</label><input id="s-id" value="PASS-001"></div>
+      <div><label for="s-budget">Budget</label><input id="s-budget" value="30 min · 1 correction max"></div>
+      <div style="grid-column:1/-1"><label for="s-obj">Objectif — une phrase, le résultat, pas la méthode</label>
+        <input id="s-obj" value="Isoler l'accès au stockage des tokens derrière un port du domaine"></div>
+      <div><label for="s-scope">Périmètre autorisé — un chemin par ligne</label>
+        <textarea id="s-scope">src/auth/**
+tests/auth/**</textarea></div>
+      <div><label for="s-forbid">Interdit — un chemin par ligne</label>
+        <textarea id="s-forbid">src/db/schema.ts
+package.json</textarea></div>
+      <div style="grid-column:1/-1"><label for="s-tasks">Tâches ordonnées — une par ligne</label>
+        <textarea id="s-tasks">Extraire l'accès à localStorage dans un adaptateur dédié
+Définir le port TokenStore dans le domaine
+Brancher l'adaptateur et couvrir les deux chemins par des tests</textarea></div>
+      <div style="grid-column:1/-1"><label for="s-dod">Définition de fini — une par ligne</label>
+        <textarea id="s-dod">npm run typecheck et npm test passent
+aucun accès direct à localStorage hors de l'adaptateur
+aucun any ajouté</textarea></div>
+      <div style="grid-column:1/-1"><label for="s-traps">Pièges connus — ce sur quoi l'exécutant va se tromper</label>
+        <textarea id="s-traps">Ne pas confondre le port du domaine et l'adaptateur d'infrastructure.
+Ne pas migrer les données existantes : hors périmètre.</textarea></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="mk">Générer</button>
+      <button class="btn ghost" id="cpmd">Copier le markdown</button>
+      <button class="btn ghost" id="dl">Télécharger le .md</button>
+    </div>
+  </div>
+
+  <div class="code"><header><span>.agent/passes/PASS-001.md</span><button class="cp">copier</button></header><pre id="out-md">— clique sur Générer —</pre></div>
+  <div class="code"><header><span>bash · envoyer à l'exécuteur</span><button class="cp">copier</button></header><pre id="out-curl">— clique sur Générer —</pre></div>
+
+  <!-- =============================================== 12 -->
+  <h2 id="usages">13 · Usages possibles</h2>
+  <p>Le pipeline ne sert pas qu'à écrire du code. Voici ce que tu peux me demander, et par quel canal.</p>
+
+  <div class="grid g2">
+    <div class="card"><span class="tag">Audit</span><h4>Diagnostic complet du dépôt</h4>
+      <p>« Audite le dépôt, priorité sécurité. » Je condense le code via <code>tools/digest.sh</code>,
+      je produis un rapport dans <code>.agent/reports/</code>, et je te remonte les points classés
+      par gravité et coût de correction.</p></div>
+    <div class="card"><span class="tag">Architecture</span><h4>Concevoir ou redresser une structure</h4>
+      <p>J'écris <code>ARCHITECTURE.md</code> et les ADR, puis je traduis chaque frontière en règle
+      exécutable. L'architecture cesse d'être un document et devient un test.</p></div>
+    <div class="card"><span class="tag">Debug</span><h4>Diagnostic d'un bug tenace</h4>
+      <p>Je lis la trace, je formule des hypothèses, j'envoie des passes d'instrumentation ciblées,
+      je lis les logs de run, et je réduis l'espace de recherche jusqu'à la cause.</p></div>
+    <div class="card"><span class="tag">Refactor</span><h4>Chantier découpé en passes</h4>
+      <p>Une migration lourde devient dix passes bornées, chacune avec son périmètre, sa définition
+      de fini et son budget. Le CI valide chaque étape avant la suivante.</p></div>
+    <div class="card"><span class="tag">Revue</span><h4>Verdict sur le travail de l'exécutant</h4>
+      <p>Je lis le diff, le rapport et le CI, puis je tranche : validé, validé avec dette inscrite,
+      ou recadrage avec une passe correctrice pointant fichier et ligne.</p></div>
+    <div class="card"><span class="tag">Pilotage</span><h4>Backlog vivant et mémoire de projet</h4>
+      <p><code>BACKLOG.md</code>, <code>STATE.md</code> et les ADR font que rien n'est rediscuté deux fois
+      et qu'aucune dette n'est oubliée.</p></div>
+    <div class="card"><span class="tag">Démarrage</span><h4>Projet neuf</h4>
+      <p>Je pose l'architecture, l'arborescence, les règles de CI et les cinq premières passes
+      avant qu'une seule ligne de code métier soit écrite.</p></div>
+    <div class="card"><span class="tag">Bilan</span><h4>Rapports périodiques</h4>
+      <p>Sur un tick planifié : ce qui a bougé, ce qui a dérivé, la dette accumulée, et ce que je
+      recommande pour la semaine.</p></div>
+  </div>
+
+  <h3>Les trois canaux de commande</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Canal</th><th>Usage</th><th>Latence</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Conversation</strong></td><td>ordres courts : « audit », « go », « recadre », « status »</td><td>immédiate</td></tr>
+      <tr><td><strong>Label GitHub</strong></td><td><code>pass:go</code> autorise une passe ; <code>pass:blocked</code> demande un arbitrage</td><td>immédiate</td></tr>
+      <tr><td><strong>Tick planifié</strong></td><td>bilan quotidien sans que tu demandes</td><td>1 fois / jour</td></tr>
+    </tbody></table></div>
+
+  <!-- =============================================== 13 -->
+  <h2 id="deploy">14 · Déploiement distant</h2>
+  <p>Le montage est déjà prêt. Le devcontainer garantit un environnement identique partout —
+  seule l'URL de l'exécuteur change.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Cible</th><th>Ce qui change</th><th>Quota</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Ta machine</strong></td><td>rien, c'est le défaut</td><td>ton abonnement Pro</td><td><span class="pill ok">recommandé</span> tant que tu codes</td></tr>
+      <tr><td><strong>Codespaces</strong></td><td>lancer l'exécuteur dedans, publier le port 7788 en public</td><td>Pro (login une fois, cache persistant)</td><td>machine éteinte possible, coût en core-hours</td></tr>
+      <tr><td><strong>VM cloud</strong></td><td>même exécuteur, même tunnel ; auth <code>agy</code> via redirection de port SSH</td><td>Pro</td><td>24/7 — le plus robuste</td></tr>
+      <tr><td><strong>GitHub Actions</strong></td><td>—</td><td>clé API ou licence Code Assist</td><td><span class="pill no">exclu</span> avec AI Pro seul</td></tr>
+    </tbody></table></div>
+  <div class="code"><header><span>bash · exécuteur dans un Codespace</span><button class="cp">copier</button></header><pre data-tpl="cs"></pre></div>
+
+  <!-- =============================================== 14 -->
+  <h2 id="quota">15 · Économie de quota</h2>
+  <p>Six règles. Elles ne sont pas cosmétiques : elles décident du nombre de passes que ton quota finance.</p>
+  <ol>
+    <li><strong>Aucun code collé dans la conversation.</strong> Une référence <code>src/auth/x.ts:40-90</code> suffit : je vais chercher le contenu par l'API.</li>
+    <li><strong>Les logs vivent dans le dépôt</strong>, dans <code>.agent/runs/</code> — jamais dans le chat.</li>
+    <li><strong>Le CI filtre avant moi.</strong> CI rouge → l'exécuteur corrige seul, je ne suis pas convoqué.</li>
+    <li><strong>Passes larges, peu nombreuses.</strong> Un aller-retour avec moi doit valoir plusieurs heures d'exécution.</li>
+    <li><strong>Un digest, pas un dump</strong>, pour tout audit large.</li>
+    <li><strong>Réveils sur événement utile seulement</strong> : PR verte, blocage, tick planifié.</li>
+  </ol>
+  <div class="note"><strong>Le partage du travail</strong>
+  <p>Je juge la conception, les frontières, les abstractions, la dette et la cohérence avec les décisions
+  passées. Le CI juge le formatage, le lint, les secrets, le code mort, les types et la couverture.
+  Si quelque chose de mécanique m'atteint deux fois, la bonne réponse est <strong>une nouvelle règle de CI</strong>,
+  pas une relecture de plus.</p></div>
+
+  <!-- =============================================== 15 -->
+  <h2 id="api">16 · Référence API de l'exécuteur</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Route</th><th>Auth</th><th>Corps</th><th>Rôle</th></tr></thead>
+    <tbody>
+      <tr><td><code>GET /health</code></td><td>non</td><td>—</td><td>vivant, dépôt, occupation</td></tr>
+      <tr><td><code>GET /status</code></td><td>oui</td><td>—</td><td>job courant, file, historique récent</td></tr>
+      <tr><td><code>GET /jobs/:id</code></td><td>oui</td><td>—</td><td>détail d'un job + fin du log</td></tr>
+      <tr><td><code>POST /pass</code></td><td>oui</td><td><code>{ id, spec, base? }</code></td><td>lance une passe</td></tr>
+      <tr><td><code>POST /command</code></td><td>oui</td><td><code>{ name, args? }</code></td><td>commande en liste blanche</td></tr>
+    </tbody></table></div>
+  <h4>Commandes en liste blanche</h4>
+  <p><span class="pill">test</span><span class="pill">lint</span><span class="pill">typecheck</span><span class="pill">build</span><span class="pill">digest</span><span class="pill">git-log</span><span class="pill">git-status</span><span class="pill">branches</span><span class="pill">tree</span><span class="pill">agy-version</span></p>
+  <p>Pour ajouter une capacité, ajoute une entrée nommée dans <code>COMMANDS</code> — jamais un passe-plat.</p>
+  <div class="code"><header><span>bash · exemples</span><button class="cp">copier</button></header><pre data-tpl="cmd"></pre></div>
+
+  <!-- =============================================== 16b -->
+  <h2 id="reuse">17 · Réutiliser le gabarit sur chaque projet</h2>
+  <p>Ce dépôt est un <strong>gabarit</strong>, pas un projet. La bonne méthode n'est pas de le cloner
+  puis de renommer le dossier — c'est d'en faire un <em>template repository</em>.</p>
+
+  <div class="tw"><table>
+    <thead><tr><th>Méthode</th><th>Historique</th><th>Remote</th><th>Risque</th></tr></thead>
+    <tbody>
+      <tr><td><strong>clone + renommage</strong></td><td>hérite des commits du gabarit</td>
+        <td><code>origin</code> pointe encore le gabarit</td>
+        <td><span class="pill no">élevé</span> un <code>git push</code> distrait pollue le gabarit</td></tr>
+      <tr><td><strong>template repository</strong></td><td>vierge, premier commit propre</td>
+        <td><code>origin</code> = ton nouveau dépôt</td>
+        <td><span class="pill ok">nul</span></td></tr>
+    </tbody></table></div>
+
+  <h3>Une fois pour toutes</h3>
+  <p>Sur le dépôt du gabarit : <strong>Settings → General → cocher « Template repository »</strong>.</p>
+
+  <h3>Puis, à chaque nouveau projet</h3>
+  <div class="code"><header><span>bash</span><button class="cp">copier</button></header><pre>gh repo create mon-nouveau-projet \
+  --template amichiamine/master-agent-pipeline --private --clone
+cd mon-nouveau-projet
+bash tools/bootstrap.sh "Mon nouveau projet" "ce que fait le projet"</pre></div>
+  <p><code>bootstrap.sh</code> écrit un <code>README.md</code> propre au projet, remet
+  <code>STATE.md</code> à zéro, purge les passes et rapports de l'exemple, ajoute le gabarit comme
+  remote <code>kit</code>, crée les cinq labels et vérifie l'outillage
+  (<code>agy</code>, <code>node</code>, <code>script</code>, <code>python3</code>).</p>
+
+  <h3>Propager une amélioration du gabarit</h3>
+  <p>Le gabarit va évoluer. Pour en faire bénéficier un projet déjà lancé, sans écraser son état :</p>
+  <div class="code"><header><span>bash</span><button class="cp">copier</button></header><pre>bash tools/kit-update.sh           # aperçu des différences
+bash tools/kit-update.sh --apply   # branche chore/kit-update-AAAAMMJJ</pre></div>
+
+  <div class="tw"><table>
+    <thead><tr><th>Écrasé par la mise à jour</th><th>Jamais touché</th></tr></thead>
+    <tbody><tr>
+      <td><code>AGENTS.md</code> · <code>PROTOCOL.md</code> · gabarits de passe et d'ADR ·
+          workflows · <code>server.js</code> · <code>run-pass.sh</code> · <code>digest.sh</code> ·
+          <code>devcontainer.json</code> · <code>lefthook.yml</code> · <code>guide.html</code></td>
+      <td><code>ARCHITECTURE.md</code> · <code>STATE.md</code> · <code>BACKLOG.md</code> ·
+          les passes et rapports du projet · le <code>README.md</code> du projet ·
+          <code>.env</code> · tout le code métier</td>
+    </tr></tbody></table></div>
+
+  <div class="warn"><strong>Un point d'attention</strong>
+  <p><code>AGENTS.md</code> §5 contient les commandes de vérification, que tu adaptes par projet.
+  Une mise à jour du gabarit les réécrit. Vérifie ce diff avant de fusionner — c'est le seul
+  endroit où le gabarit et le projet se disputent le même fichier.</p></div>
+
+  <!-- =============================================== 17 -->
+  <h2 id="trouble">18 · Dépannage</h2>
+  <details><summary>Sortie vide alors que le code de sortie est 0</summary>
+    <p>C'est le bug non-TTY d'<code>agy -p</code>. Le kit l'enveloppe déjà dans un pseudo-TTY et relance
+    une fois si la sortie est vide. Si le symptôme persiste : vérifie que <code>script</code> est installé
+    (<code>util-linux</code>), et n'utilise jamais <code>agy -p</code> nu dans un script.</p>
+    <div class="code"><header><span>bash</span><button class="cp">copier</button></header><pre>script -qec 'agy -p "PONG"' /dev/null   # Linux
+script -q /dev/null agy -p "PONG"       # macOS</pre></div></details>
+
+  <details><summary>« auth timed out » dans les logs</summary>
+    <p>Le contexte non interactif n'a pas retrouvé la session. Relance <code>agy</code> en interactif une
+    fois pour rafraîchir le cache, puis relance la passe. Sur une machine sans écran, <code>agy</code>
+    détecte la session distante et affiche une URL d'autorisation à ouvrir depuis ton navigateur local.</p></details>
+
+  <details><summary>Passe échouée : « marqueur PASS-DONE/PASS-BLOCKED absent »</summary>
+    <p>L'exécuteur n'a pas respecté <code>AGENTS.md</code> §7. C'est presque toujours le signe d'une spec
+    trop large : il s'est épuisé avant de conclure. Réduis le périmètre, rappelle le marqueur
+    explicitement dans la spec, et baisse le budget.</p></details>
+
+  <details><summary><code>git worktree add</code> échoue</summary>
+    <div class="code"><header><span>bash</span><button class="cp">copier</button></header><pre>git worktree prune
+git worktree list
+git branch -D pass/PASS-001   # si la branche traîne encore</pre></div></details>
+
+  <details><summary>Le CI échoue sur <code>pass-contract</code></summary>
+    <p>C'est le garde-fou qui fonctionne, pas une panne. Soit le rapport de run manque ou est incomplet,
+    soit l'exécuteur a touché un fichier de contrat. Dans les deux cas : ne désactive pas le job,
+    fais corriger la passe.</p></details>
+
+  <details><summary>Le quota hebdomadaire est épuisé</summary>
+    <p>Le contrat vit dans le dépôt, donc l'exécuteur est remplaçable. Change <code>AGENT_CMD</code>
+    dans <code>.env</code> — <code>qwen</code>, <code>opencode</code> ou <code>aider</code> — et relance
+    la même spec. Rien d'autre à modifier.</p></details>
+
+  <details><summary>L'exécuteur ne répond pas à travers le tunnel</summary>
+    <p>Vérifie dans l'ordre : <code>/health</code> en local, le tunnel actif, l'URL exacte, puis le jeton.
+    Une erreur 401 signifie que le jeton du client diffère de <code>EXECUTOR_TOKEN</code> ;
+    une absence de réponse signifie que le tunnel est tombé.</p></details>
+
+  <footer>
+    <p>Mode d'emploi du kit <strong>Pipeline Master Agent ⇄ Antigravity</strong>. Les faits techniques
+    sur <code>agy</code> et sur les quotas reflètent l'état vérifié en août 2026 — l'outillage bouge vite,
+    revérifie <code>agy --help</code> après chaque mise à jour.</p>
+  </footer>
+</main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var S = {}; // état de configuration
+  var LS = (function(){ try { localStorage.setItem('_t','1'); localStorage.removeItem('_t'); return localStorage; } catch(e){ return null; } })();
+
+  var F = ['root','port','base','cmd','model','timeout','token','url'];
+  function el(id){ return document.getElementById(id); }
+
+  function read(){
+    F.forEach(function(k){ var n = el('f-'+k); if(n) S[k] = n.value.trim(); });
+    if(LS){ try{ LS.setItem('cfg', JSON.stringify(S)); el('saved').textContent = 'valeurs conservées localement'; }catch(e){} }
+    render();
+  }
+  function restore(){
+    if(!LS) return;
+    try{
+      var raw = LS.getItem('cfg'); if(!raw) return;
+      var v = JSON.parse(raw);
+      F.forEach(function(k){ var n = el('f-'+k); if(n && v[k] !== undefined) n.value = v[k]; });
+    }catch(e){}
+  }
+
+  // ---------- gabarits de commandes ----------
+  var TPL = {
+    env: function(){ return [
+      'EXECUTOR_TOKEN=' + S.token,
+      'PORT=' + S.port,
+      'HOST=127.0.0.1',
+      'REPO_ROOT=' + S.root,
+      'BASE_BRANCH=' + S.base,
+      '',
+      'AGENT_CMD=' + S.cmd,
+      'AGENT_MODEL=' + (S.model || ''),
+      'PRINT_TIMEOUT=' + S.timeout,
+      'HARD_TIMEOUT=2400',
+      'JOB_TIMEOUT_MS=2700000',
+      '',
+      'AUTO_PUSH=1',
+      'OPEN_PR=1',
+      'SKIP_PERMISSIONS=1'
+    ].join('\n'); },
+
+    start: function(){ return [
+      'cd ' + S.root + '/tools/executor',
+      'set -a && . ./.env && set +a',
+      'node server.js'
+    ].join('\n'); },
+
+    health: function(){ return [
+      'curl -s localhost:' + S.port + '/health | jq',
+      '',
+      'curl -s localhost:' + S.port + '/status \\',
+      '  -H "Authorization: Bearer ' + S.token + '" | jq'
+    ].join('\n'); },
+
+    cf:  function(){ return 'cloudflared tunnel --url http://127.0.0.1:' + S.port; },
+    cf2: function(){ return [
+      'cloudflared tunnel login',
+      'cloudflared tunnel create master-agent',
+      'cloudflared tunnel route dns master-agent executor.ton-domaine.com',
+      'cloudflared tunnel run --url http://127.0.0.1:' + S.port + ' master-agent'
+    ].join('\n'); },
+    ts:  function(){ return 'tailscale funnel ' + S.port; },
+    ng:  function(){ return 'ngrok http ' + S.port; },
+    cs:  function(){ return [
+      '# dans le Codespace',
+      'agy                       # authentifie une fois, le cache persiste',
+      'node tools/executor/server.js &',
+      'gh codespace ports visibility ' + S.port + ':public -c "$CODESPACE_NAME"'
+    ].join('\n'); },
+
+    pass: function(){ return [
+      'BASE=' + (S.url || 'http://127.0.0.1:' + S.port),
+      'TOKEN=' + S.token,
+      '',
+      'curl -sS -X POST "$BASE/pass" \\',
+      '  -H "Authorization: Bearer $TOKEN" \\',
+      "  -H 'content-type: application/json' \\",
+      '  -d "$(jq -n --arg spec "$(cat .agent/passes/PASS-001.md)" \\',
+      '        \'{id:"PASS-001", spec:$spec}\')" | jq'
+    ].join('\n'); },
+
+    status: function(){ return [
+      'watch -n 20 \'curl -s ' + (S.url || 'http://127.0.0.1:' + S.port) + '/status \\',
+      '  -H "Authorization: Bearer ' + S.token + '" | jq ".current"\''
+    ].join('\n'); },
+
+    cmd: function(){ var b = (S.url || 'http://127.0.0.1:' + S.port);
+      return [
+      '# lancer les tests',
+      'curl -sS -X POST "' + b + '/command" -H "Authorization: Bearer ' + S.token + '" \\',
+      "  -H 'content-type: application/json' -d '{\"name\":\"test\"}' | jq",
+      '',
+      '# produire un digest du dépôt (pour un audit)',
+      'curl -sS -X POST "' + b + '/command" -H "Authorization: Bearer ' + S.token + '" \\',
+      "  -H 'content-type: application/json' -d '{\"name\":\"digest\"}' | jq -r .stdout"
+    ].join('\n'); }
+  };
+
+  function render(){
+    document.querySelectorAll('pre[data-tpl]').forEach(function(p){
+      var f = TPL[p.getAttribute('data-tpl')];
+      if(!f) return;
+      p.textContent = f();
+      // met en évidence les valeurs injectées
+      var vals = [S.root, S.token, S.port, S.url].filter(function(v){ return v && v.length > 3; });
+      var html = p.textContent.replace(/[&<>]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]; });
+      vals.forEach(function(v){
+        var esc = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        html = html.replace(new RegExp(esc, 'g'), '<span class="v">' + v.replace(/[&<>]/g,'') + '</span>');
+      });
+      p.innerHTML = html;
+    });
+  }
+
+  // ---------- copie ----------
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('.cp'); if(!b) return;
+    var pre = b.closest('.code').querySelector('pre');
+    var txt = pre.innerText;
+    var done = function(){ b.textContent = 'copié'; b.classList.add('done');
+      setTimeout(function(){ b.textContent = 'copier'; b.classList.remove('done'); }, 1600); };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done, function(){ fallback(txt, done); });
+    } else fallback(txt, done);
+  });
+  function fallback(txt, cb){
+    var t = document.createElement('textarea'); t.value = txt;
+    t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select();
+    try{ document.execCommand('copy'); cb(); }catch(e){}
+    document.body.removeChild(t);
+  }
+
+  // ---------- champs ----------
+  F.forEach(function(k){ var n = el('f-'+k); if(n) n.addEventListener('input', read); });
+  el('f-cmd').addEventListener('change', read);
+  el('gen').addEventListener('click', function(){
+    var a = new Uint8Array(24), s = '';
+    (window.crypto || window.msCrypto).getRandomValues(a);
+    for(var i=0;i<a.length;i++){ s += ('0'+a[i].toString(16)).slice(-2); }
+    el('f-token').value = s; read();
+  });
+  el('reset').addEventListener('click', function(){
+    if(LS){ try{ LS.removeItem('cfg'); LS.removeItem('ck'); }catch(e){} }
+    location.reload();
+  });
+
+  // ---------- checklist ----------
+  var CK = (function(){ try{ return JSON.parse(LS && LS.getItem('ck') || '{}'); }catch(e){ return {}; } })();
+  function paintCk(){
+    var items = document.querySelectorAll('#ck li'), n = 0;
+    items.forEach(function(li){
+      var on = !!CK[li.dataset.k];
+      li.classList.toggle('on', on); if(on) n++;
+    });
+    var pc = items.length ? Math.round(n / items.length * 100) : 0;
+    el('pct').textContent = pc + ' %';
+    el('pbar').style.width = pc + '%';
+  }
+  document.querySelectorAll('#ck li').forEach(function(li){
+    li.addEventListener('click', function(){
+      CK[li.dataset.k] = !CK[li.dataset.k];
+      if(LS){ try{ LS.setItem('ck', JSON.stringify(CK)); }catch(e){} }
+      paintCk();
+    });
+  });
+
+  // ---------- onglets ----------
+  document.querySelectorAll('.tab').forEach(function(t){
+    t.addEventListener('click', function(){
+      var g = t.closest('.tabgroup'); if(!g) return;
+      g.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
+      g.querySelectorAll('.pane').forEach(function(x){ x.classList.remove('on'); });
+      t.classList.add('on');
+      var pane = g.querySelector('.pane[data-p="' + t.dataset.t + '"]');
+      if(pane) pane.classList.add('on');
+    });
+  });
+
+  // ---------- scroll-spy ----------
+  var links = [].slice.call(document.querySelectorAll('nav a'));
+  var secs = links.map(function(a){ return document.querySelector(a.getAttribute('href')); });
+  function spy(){
+    var y = window.scrollY + 130, cur = 0;
+    secs.forEach(function(s, i){ if(s && s.offsetTop <= y) cur = i; });
+    links.forEach(function(a, i){ a.classList.toggle('on', i === cur); });
+  }
+  window.addEventListener('scroll', spy, { passive: true });
+
+  // ---------- générateur de spec ----------
+  function lines(id){
+    return el(id).value.split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+  }
+  function buildMd(){
+    var id = el('s-id').value.trim() || 'PASS-001';
+    var L = [];
+    L.push('# ' + id + ' — ' + el('s-obj').value.trim());
+    L.push('');
+    L.push('> Spec écrite par le Master Agent. Lecture seule pour l\'exécuteur.');
+    L.push('> Elle est la seule source de vérité de cette passe.');
+    L.push('');
+    L.push('## Objectif'); L.push(''); L.push(el('s-obj').value.trim()); L.push('');
+    L.push('## Branche'); L.push(''); L.push('`pass/' + id + '`, créée depuis `' + (S.base || 'main') + '`.'); L.push('');
+    L.push('## PÉRIMÈTRE AUTORISÉ'); L.push(''); L.push('```');
+    lines('s-scope').forEach(function(x){ L.push(x); }); L.push('```'); L.push('');
+    L.push('## INTERDIT'); L.push(''); L.push('```');
+    L.push('.github/workflows/**'); L.push('AGENTS.md'); L.push('.agent/ARCHITECTURE.md');
+    lines('s-forbid').forEach(function(x){ L.push(x); }); L.push('```'); L.push('');
+    L.push('## Contexte à lire d\'abord'); L.push('');
+    L.push('- `.agent/ARCHITECTURE.md`'); L.push('- `.agent/STATE.md`'); L.push('');
+    L.push('## Tâches ordonnées'); L.push('');
+    lines('s-tasks').forEach(function(x, i){ L.push((i+1) + '. ' + x); }); L.push('');
+    L.push('## Définition de fini'); L.push('');
+    lines('s-dod').forEach(function(x){ L.push('- [ ] ' + x); });
+    L.push('- [ ] les vérifications d\'AGENTS.md §5 passent');
+    L.push('- [ ] `.agent/runs/' + id + '.run.md` est complet'); L.push('');
+    L.push('## Pièges connus'); L.push('');
+    lines('s-traps').forEach(function(x){ L.push('- ' + x); }); L.push('');
+    L.push('## Budget'); L.push(''); L.push(el('s-budget').value.trim() + ' — au-delà : `PASS-BLOCKED`'); L.push('');
+    L.push('## Si ambiguïté'); L.push('');
+    L.push('N\'invente pas. Consigne la question dans le rapport et arrête-toi.');
+    return L.join('\n');
+  }
+  function buildCurl(){
+    var id = el('s-id').value.trim() || 'PASS-001';
+    var base = S.url || ('http://127.0.0.1:' + S.port);
+    return [
+      '# 1. enregistre la spec',
+      'cat > .agent/passes/' + id + '.md   # colle le markdown ci-dessus',
+      '',
+      '# 2. envoie-la à l\'exécuteur',
+      'curl -sS -X POST "' + base + '/pass" \\',
+      '  -H "Authorization: Bearer ' + S.token + '" \\',
+      "  -H 'content-type: application/json' \\",
+      '  -d "$(jq -n --arg spec "$(cat .agent/passes/' + id + '.md)" \\',
+      '        \'{id:"' + id + '", spec:$spec}\')" | jq'
+    ].join('\n');
+  }
+  el('mk').addEventListener('click', function(){
+    el('out-md').textContent = buildMd();
+    el('out-curl').textContent = buildCurl();
+  });
+  el('cpmd').addEventListener('click', function(){
+    fallback(buildMd(), function(){ el('cpmd').textContent = 'copié';
+      setTimeout(function(){ el('cpmd').textContent = 'Copier le markdown'; }, 1600); });
+  });
+  el('dl').addEventListener('click', function(){
+    var id = el('s-id').value.trim() || 'PASS-001';
+    var blob = new Blob([buildMd()], { type: 'text/markdown' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = id + '.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+
+  // ---------- démarrage ----------
+  restore(); read(); paintCk(); spy();
+})();
+</script>
+</body>
+</html>

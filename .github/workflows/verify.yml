@@ -1,0 +1,111 @@
+name: verify
+on:
+  push:
+    branches: ["main", "pass/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ------------------------------------------------------- juge 1 : le contrat
+  pass-contract:
+    name: contrat de passe
+    runs-on: ubuntu-latest
+    if: startsWith(github.head_ref, 'pass/') || startsWith(github.ref_name, 'pass/')
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Le rapport de run doit exister
+        run: |
+          BRANCH="${{ github.head_ref || github.ref_name }}"
+          ID="${BRANCH#pass/}"
+          REPORT=".agent/runs/PASS-${ID#PASS-}.run.md"
+          [ -f "$REPORT" ] || REPORT=".agent/runs/${ID}.run.md"
+          if [ ! -f "$REPORT" ]; then
+            echo "::error::rapport de run absent (attendu : .agent/runs/<ID>.run.md)"
+            echo "AGENTS.md §6 : une passe sans rapport est un échec, même si le code est bon."
+            exit 1
+          fi
+          for S in "Fichiers touchés" "Décisions prises" "Écarts" "Vérifications" "Dette"; do
+            grep -q "$S" "$REPORT" || { echo "::error::section manquante dans le rapport : $S"; exit 1; }
+          done
+          echo "rapport conforme : $REPORT"
+
+      - name: Les fichiers de contrat sont intouchables
+        run: |
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          [ -z "$BASE" ] && exit 0
+          CHANGED="$(git diff --name-only "$BASE"...HEAD || true)"
+          echo "$CHANGED"
+          if echo "$CHANGED" | grep -qE '^(AGENTS\.md|\.agent/(ARCHITECTURE|PROTOCOL)\.md|\.agent/passes/|\.github/workflows/)'; then
+            echo "::error::l'exécuteur a modifié un fichier de contrat ou un workflow — interdit par AGENTS.md §3"
+            exit 1
+          fi
+
+  # ------------------------------------------------------- juge 2 : les secrets
+  secrets:
+    name: secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+
+  # ------------------------------------------------------- juge 3 : la qualité
+  quality:
+    name: qualité
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+
+      - name: Détection de la stack
+        id: stack
+        run: |
+          [ -f package.json ] && echo "node=true" >> "$GITHUB_OUTPUT"
+          [ -f pyproject.toml ] || [ -f requirements.txt ] && echo "python=true" >> "$GITHUB_OUTPUT"
+          echo "aucune détection stricte requise"
+
+      - name: Installation (Node)
+        if: steps.stack.outputs.node == 'true'
+        run: npm ci || npm install
+
+      - name: Typecheck
+        if: steps.stack.outputs.node == 'true'
+        run: npm run typecheck --if-present
+
+      - name: Lint
+        if: steps.stack.outputs.node == 'true'
+        run: npm run lint --if-present
+
+      - name: Tests
+        if: steps.stack.outputs.node == 'true'
+        run: npm test --if-present
+
+      - name: Code mort (knip)
+        if: steps.stack.outputs.node == 'true'
+        continue-on-error: true
+        run: npx --yes knip --no-exit-code
+
+      - name: Règles d'architecture (dependency-cruiser)
+        if: steps.stack.outputs.node == 'true'
+        run: |
+          if [ -f .dependency-cruiser.js ] || [ -f .dependency-cruiser.json ]; then
+            npx --yes dependency-cruiser --validate --output-type err-long src || exit 1
+          else
+            echo "pas de règles d'architecture déclarées — étape ignorée"
+            echo "::notice::déclare .dependency-cruiser.js pour rendre l'architecture opposable"
+          fi
+
+      - name: Python
+        if: steps.stack.outputs.python == 'true'
+        run: |
+          pip install --quiet ruff pytest
+          ruff check . || exit 1
+          pytest -q || exit 1

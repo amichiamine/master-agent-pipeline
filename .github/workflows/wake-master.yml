@@ -1,0 +1,36 @@
+# Réveille le Master Agent — uniquement sur les événements qui méritent son quota.
+# Configure le secret MASTER_WEBHOOK_URL ; sans lui, le workflow ne fait rien.
+name: wake-master
+on:
+  pull_request:
+    types: [opened, ready_for_review, labeled]
+  workflow_run:
+    workflows: ["verify"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Appel du Master Agent
+        env:
+          URL: ${{ secrets.MASTER_WEBHOOK_URL }}
+        run: |
+          if [ -z "$URL" ]; then
+            echo "MASTER_WEBHOOK_URL non configuré — rien à faire."
+            exit 0
+          fi
+          jq -n \
+            --arg event "${{ github.event_name }}" \
+            --arg repo "${{ github.repository }}" \
+            --arg branch "${{ github.head_ref || github.ref_name }}" \
+            --arg pr "${{ github.event.pull_request.html_url }}" \
+            --arg ci "${{ github.event.workflow_run.conclusion || 'n/a' }}" \
+            '{event:$event, repo:$repo, branch:$branch, pr:$pr, ci:$ci,
+              ask:"Passe prête à juger. Lis le diff, le rapport de run et le CI, puis rends un verdict."}' \
+            | curl -sS -X POST "$URL" -H 'content-type: application/json' -d @- || true
